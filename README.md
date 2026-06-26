@@ -1,6 +1,6 @@
 docker-compose.yml 使用完整操作文档
  
-适配系统：Arch、Debian、Ubuntu、Fedora
+适配系统：Arch、Ubuntu、Fedora
  
 一、文件基础说明
  
@@ -9,8 +9,6 @@ docker-compose.yml 使用完整操作文档
 二、分系统安装 Docker + Compose
  
 1. Arch
- 
-bash
   
 # 安装组件
 sudo pacman -S docker docker-compose
@@ -22,23 +20,18 @@ sudo usermod -aG docker $USER
 newgrp docker
  
  
-2. Debian 11+ / Ubuntu 20.04+
+2.Ubuntu 20.04+
  
 方案A：系统官方源（简单稳定）
  
-bash
-  
 sudo apt update
-sudo apt install docker.io docker-compose-plugin -y
+sudo apt install docker.io docker-compose-v2 -y
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 newgrp docker
  
- 
 方案B：Docker官方源（最新版本，生产环境推荐）
- 
-bash
-  
+
 # 前置依赖
 sudo apt install ca-certificates curl gnupg lsb-release
 # 导入官方GPG密钥
@@ -55,9 +48,7 @@ newgrp docker
  
  
 3. Fedora 36+
- 
-bash
-  
+
 # 安装docker全套
 sudo dnf install docker docker-compose-plugin -y
 # 启动服务并开机自启
@@ -71,10 +62,7 @@ newgrp docker
  
 进入  docker-compose.yml  存放目录（示例路径）
  
-bash
-  
 cd ~/Documents
- 
  
 四、全系统通用 Compose 核心命令
  
@@ -83,23 +71,17 @@ cd ~/Documents
  
 1. 后台启动容器（日常使用）
  
-bash
-  
 docker compose up -d
  
  
 参数  -d ：后台分离运行，不占用终端
  
 2. 查看容器运行状态
- 
-bash
-  
+
 docker compose ps
  
  
 3. 实时查看日志（排错专用）
- 
-bash
   
 # 查看所有服务实时日志
 docker compose logs -f
@@ -108,46 +90,32 @@ docker compose logs -f 服务名
  
  
 4. 停止并销毁容器（保留数据卷、镜像）
- 
-bash
-  
+
 docker compose down
  
  
 彻底销毁容器+持久化存储数据（谨慎执行，数据丢失）
- 
-bash
   
 docker compose down -v
  
- 
 5. 修改yml配置后重载生效
- 
-bash
-  
+
 # 先停止旧容器，重新创建并启动
 docker compose down && docker compose up -d
  
- 
 6. 拉取镜像更新
- 
-bash
-  
+
 docker compose pull
  
  
 7. 重启指定服务
- 
-bash
-  
+
 docker compose restart 服务名
  
  
 五、补充特殊场景
  
 1. 自定义配置文件名（非默认  docker-compose.yml ）
- 
-bash
   
 # -f 指定配置文件路径
 docker compose -f xxx.yml up -d
