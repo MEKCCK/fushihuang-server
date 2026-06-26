@@ -1,0 +1,40 @@
+services:
+  aemu-server:
+    image: ghcr.io/a-blondel/aemu-servers/aemu-server:latest
+    restart: unless-stopped
+    networks:
+      - aemu-net
+    ports:
+      - "27312:27312"
+    volumes:
+      - status-data:/data
+
+  postoffice:
+    image: ghcr.io/a-blondel/aemu-servers/postoffice:latest
+    restart: unless-stopped
+    networks:
+      - aemu-net
+    ports:
+      - "27313:27313"
+
+  web:
+    image: ghcr.io/a-blondel/aemu-servers/web:latest
+    restart: unless-stopped
+    networks:
+      - aemu-net
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTOFFICE_URL=http://postoffice:27314
+    volumes:
+      - status-data:/data:ro
+    depends_on:
+      - aemu-server
+      - postoffice
+
+networks:
+  aemu-net:
+    driver: bridge
+
+volumes:
+  status-data:
