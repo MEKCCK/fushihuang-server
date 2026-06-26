@@ -22,31 +22,12 @@ newgrp docker
  
 2.Ubuntu 20.04+
  
-方案A：系统官方源（简单稳定）
- 
 sudo apt update
 sudo apt install docker.io docker-compose-v2 -y
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 newgrp docker
  
-方案B：Docker官方源（最新版本，生产环境推荐）
-
-# 前置依赖
-sudo apt install ca-certificates curl gnupg lsb-release
-# 导入官方GPG密钥
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-# 添加Docker软件源
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-# 安装新版Docker
-sudo apt update
-sudo apt install docker-ce docker-ce-cli containerd.io docker-compose-plugin -y
-# 权限配置
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-newgrp docker
- 
- 
 3. Fedora 36+
 
 # 安装docker全套
