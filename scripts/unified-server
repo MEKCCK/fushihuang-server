@@ -70,8 +70,12 @@ start_azahar_room() {
                 --preferred-game "$AZAHAR_ROOM_PREFERRED_GAME"
                 --preferred-game-id "$AZAHAR_ROOM_PREFERRED_GAME_ID")
     [ -n "$AZAHAR_ROOM_PASSWORD" ] && args+=(--password "$AZAHAR_ROOM_PASSWORD")
-    if [ -n "$AZAHAR_ROOM_TOKEN" ] && [ -n "$WEB_API_URL" ]; then
-        args+=(--username "$AZAHAR_ROOM_USERNAME" --token "$AZAHAR_ROOM_TOKEN" --web-api-url "$WEB_API_URL")
+    local api_url="$WEB_API_URL" api_user="$AZAHAR_ROOM_USERNAME" api_token="$AZAHAR_ROOM_TOKEN"
+    if [ "$CVN_PLAY_ENABLED" = "true" ] && [ -n "$CVN_PLAY_TOKEN" ]; then
+        api_url="$CVN_PLAY_WEB_API_URL"; api_user="$CVN_PLAY_USERNAME"; api_token="$CVN_PLAY_TOKEN"
+    fi
+    if [ -n "$api_token" ] && [ -n "$api_url" ]; then
+        args+=(--username "$api_user" --token "$api_token" --web-api-url "$api_url")
     fi
     args+=(--log-file "$LOG_DIR/azahar-room.log")
     nohup "$bin" "${args[@]}" >>"$(log_file azahar-room)" 2>&1 &
@@ -88,8 +92,12 @@ start_eden_room() {
                 --preferred-game-id "$EDEN_ROOM_PREFERRED_GAME_ID"
                 --ban-list-file "$DATA_DIR/eden-ban.txt")
     [ -n "$EDEN_ROOM_PASSWORD" ] && args+=(--password "$EDEN_ROOM_PASSWORD")
-    if [ -n "$EDEN_ROOM_TOKEN" ] && [ -n "$WEB_API_URL" ]; then
-        args+=(--username "$EDEN_ROOM_USERNAME" --token "$EDEN_ROOM_TOKEN" --web-api-url "$WEB_API_URL")
+    local api_url="$WEB_API_URL" api_user="$EDEN_ROOM_USERNAME" api_token="$EDEN_ROOM_TOKEN"
+    if [ "$CVN_PLAY_ENABLED" = "true" ] && [ -n "$CVN_PLAY_TOKEN" ]; then
+        api_url="$CVN_PLAY_WEB_API_URL"; api_user="$CVN_PLAY_USERNAME"; api_token="$CVN_PLAY_TOKEN"
+    fi
+    if [ -n "$api_token" ] && [ -n "$api_url" ]; then
+        args+=(--username "$api_user" --token "$api_token" --web-api-url "$api_url")
     fi
     args+=(--log-file "$LOG_DIR/eden-room.log")
     nohup "$bin" "${args[@]}" >>"$(log_file eden-room)" 2>&1 &

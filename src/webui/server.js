@@ -44,6 +44,38 @@ const LOG_DIR = path.join(DATA_DIR, "logs");
 const LOBBY_FILE = path.join(DATA_DIR, "lobby.json");
 const UNIFIED_CTL = path.join(ROOT, "scripts", "unified-server");
 
+// ------------------------------------------------------------- lobby relay (双公示)
+// 把本服务收到的房间公告同时转发到外部大厅(如 CVN Play)
+const RELAY_ENABLED = CONFIG.LOBBY_RELAY_ENABLED === "true";
+const RELAY_URL = (CONFIG.LOBBY_RELAY_URL || "").replace(/\/+$/, "");
+const RELAY_TOKEN = CONFIG.LOBBY_RELAY_TOKEN || "";
+
+function relayPost(urlPath, body) {
+    if (!RELAY_ENABLED || !RELAY_URL) return;
+    const data = JSON.stringify(body);
+    const u = new URL(RELAY_URL + urlPath);
+    const headers = { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) };
+    if (RELAY_TOKEN) headers.Authorization = "Bearer " + RELAY_TOKEN;
+    const req = http.request(u, { method: "POST", headers, timeout: 8000 }, (res) => {
+        if (res.statusCode && res.statusCode >= 400)
+            console.log(`[relay] POST ${urlPath} -> ${res.statusCode}`);
+        res.resume();
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", (e) => console.log(`[relay] error: ${e.message}`));
+    req.end(data);
+}
+
+function relayDelete(urlPath) {
+    if (!RELAY_ENABLED || !RELAY_URL) return;
+    const u = new URL(RELAY_URL + urlPath);
+    const headers = {};
+    if (RELAY_TOKEN) headers.Authorization = "Bearer " + RELAY_TOKEN;
+    const req = http.request(u, { method: "DELETE", headers, timeout: 8000 }, (res) => res.resume());
+    req.on("error", () => {});
+    req.end();
+}
+
 // ------------------------------------------------------------- config
 let CONFIG = {};
 function parseConf(text) {
@@ -257,6 +289,8 @@ const server = http.createServer(async (req, res) => {
                 r.platform = r.platform || (r.preferredGameId && r.preferredGameId > 0xffff ? "eden" : "azahar");
                 LOBBY.set(id, r);
                 lobbySave();
+                // relay to CVN Play / external lobby (双公示)
+                relayPost("/lobby", r);
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ ...lobbyToCitra(r), verify_UID: "" }));
             } catch (e) {
@@ -277,6 +311,7 @@ const server = http.createServer(async (req, res) => {
                 const upd = JSON.parse(body);
                 rec.players = upd.players || []; rec.updatedAt = Date.now();
                 lobbySave();
+                relayPost("/lobby/" + id, upd);
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify(lobbyToCitra(rec)));
             } catch { res.writeHead(400); res.end("bad json"); }
@@ -294,7 +329,9 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ rooms: [...LOBBY.values()].map(lobbyToCitra) }));
     }
     if (lobbyMatch && method === "DELETE") {
+        const rec = LOBBY.get(lobbyMatch[1]);
         LOBBY.delete(lobbyMatch[1]); lobbySave();
+        if (rec) relayDelete("/lobby/" + rec.id);
         res.writeHead(200); return res.end("{}");
     }
 
