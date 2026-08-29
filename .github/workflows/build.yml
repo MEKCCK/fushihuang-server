@@ -91,9 +91,9 @@ jobs:
       - name: 汇总并打包
         run: |
           mkdir -p build/bin build/postoffice
-          tar -xzf build/artifacts/psp.tar.gz -C .
-          tar -xzf build/artifacts/azahar-room.tar.gz -C .
-          tar -xzf build/artifacts/eden-room.tar.gz -C .
+          tar -xzf build/artifacts/psp.tar.gz -C build
+          tar -xzf build/artifacts/azahar-room.tar.gz -C build
+          tar -xzf build/artifacts/eden-room.tar.gz -C build
           chmod +x build/bin/* scripts/*.sh
           bash scripts/package.sh x86_64
       - name: 发布到 GitHub Release
