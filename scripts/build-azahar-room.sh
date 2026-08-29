@@ -39,7 +39,7 @@ def clone(job):
         os.makedirs(parent, exist_ok=True)
     if os.path.isdir(path) and os.listdir(path):
         return path, "skip(nonempty)"
-    r = subprocess.run(["git", "clone", "--depth", "1", url, path],
+    r = subprocess.run(["git", "clone", "--recursive", "--depth", "1", url, path],
                        capture_output=True, text=True)
     if r.returncode != 0:
         return path, f"FAIL: {r.stderr.strip()[-200:]}"
@@ -64,6 +64,7 @@ cmake -S . -B build -G Ninja \
     -DENABLE_GDBSTUB=OFF \
     -DENABLE_TESTS=OFF \
     -DENABLE_LIBRETRO=OFF \
+    -DENABLE_SDL2=OFF \
     -DENABLE_ROOM=ON \
     -DENABLE_ROOM_STANDALONE=ON \
     -DENABLE_WEB_SERVICE=ON \
