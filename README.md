@@ -59,7 +59,7 @@
 
 ```bash
 # 1. 方式 A:直接使用 GitHub Actions 产出的发布包
-tar -xzf all-in-one-netplay-server-linux-x86_64.tar.gz
+tar -xzf fushihuang-server-linux-x86_64.tar.gz (ARM 机器用 arm64 包)
 cd all-in-one-netplay-server
 ./scripts/unified-server start all     # 启动全部服务
 ./scripts/unified-server status        # 查看状态
