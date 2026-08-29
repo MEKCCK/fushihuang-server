@@ -16,8 +16,46 @@ if [ ! -d .git ]; then
     git -c user.email=ci@local -c user.name=ci commit -qm init >/dev/null 2>&1 || true
 fi
 
-echo ">> pulling externals submodules (enet/boost/fmt/...) (第一次较慢)"
-git submodule update --init --recursive --depth 1 || { echo "submodule update failed"; exit 1; }
+echo ">> pulling externals submodules (多线程 git clone, 第一次较慢)"
+python3 - <<'PYEOF'
+import os, re, subprocess, concurrent.futures, sys
+
+data = open(".gitmodules", encoding="utf-8").read()
+jobs = []
+for m in re.finditer(r"\[submodule \"([^\"]+)\"\]\s*path = (\S+)\s*url = (\S+)", data):
+    _, path, url = m.groups()
+    # skip if the directory already exists with content or a .git
+    if os.path.isdir(path):
+        if os.path.exists(os.path.join(path, ".git")) or os.listdir(path):
+            print(f"[skip] {path} already present")
+            continue
+    jobs.append((path, url))
+
+print(f"[fetch] {len(jobs)} submodules")
+def clone(job):
+    path, url = job
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    if os.path.isdir(path) and os.listdir(path):
+        return path, "skip(nonempty)"
+    r = subprocess.run(["git", "clone", "--depth", "1", url, path],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return path, f"FAIL: {r.stderr.strip()[-200:]}"
+    return path, "ok"
+
+fails = []
+with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+    for path, st in ex.map(clone, jobs):
+        print(f"[fetch] {path}: {st}")
+        if st != "ok":
+            fails.append(path)
+if fails:
+    print("FAILED:", fails)
+    sys.exit(1)
+print("[fetch] all externals ready")
+PYEOF
 
 echo ">> configuring cmake (room-server only build)"
 cmake -S . -B build -G Ninja \
@@ -29,6 +67,7 @@ cmake -S . -B build -G Ninja \
     -DENABLE_ROOM=ON \
     -DENABLE_ROOM_STANDALONE=ON \
     -DENABLE_WEB_SERVICE=ON \
+    -DUSE_SYSTEM_OPENSSL=ON \
     -DCITRA_USE_PRECOMPILED_HEADERS=OFF
 
 echo ">> building azahar-room"
