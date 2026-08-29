@@ -1,75 +1,65 @@
-# 服始皇 (Fu Shi Huang) — 大一统联机服务端
+# 服始皇 · Fu Shi Huang — 大一统联机服务端
 
-一个把 **PSP / 3DS / Switch 三大平台联机服务端** 合并成单一部署单元的项目:
-用 GitHub Actions 构建,只分发 **Linux** 版本,一条命令启动全部服务。
+一个把 **PSP / 3DS / Switch 三大平台联机服务端** 集成到单个部署单元的 Linux 服务端项目。
+由 GitHub Actions 自动构建,产出 **x86_64 与 ARM64** 两个架构的发行物(含 AppImage 单文件版)。
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                    大一统联机服务端                           │
-│                                                            │
-│  PSP 平台                                                    │
-│   ├─ pspnet_adhocctl_server  组管理服务   TCP 27312         │
-│   └─ aemu_postoffice         数据中继     TCP 27313/27314   │
-│  3DS 平台                                                    │
-│   └─ azahar-room             联机房间服务 TCP 24872          │
-│  Switch 平台                                                  │
-│   └─ eden-room               联机房间服务 TCP 24873          │
-│                                                            │
-│  Web 前端 (WEBUI, TCP 8080)                                   │
-│   ├─ /        玩家状态页:聚合显示所有服务器与房间状态          │
-│   └─ /admin   管理面板:启停/重启服务、看日志、改配置           │
-│   └─ /lobby   房间公告 API(房间服务器每 15 秒上报,完全本地)    │
-│                                                            │
-│  custom/     玩家状态页自定义(custom/index.html, style.css)  │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                    服始皇 (Fu Shi Huang)               │
+│                                                      │
+│  PSP 平台        pspnet_adhocctl_server  组管理  TCP 27312 │
+│                  aemu_postoffice         数据中继  TCP 27313/27314 │
+│  3DS 平台        azahar-room             房间服务器 UDP 24872  │
+│  Switch 平台     eden-room               房间服务器 UDP 24873  │
+│                                                      │
+│  Web 前端 (TCP 8080)                                   │
+│   ├─ /       玩家状态页:聚合显示所有服务器与房间状态       │
+│   ├─ /admin  管理面板:启停/重启、日志、在线改配置         │
+│   └─ /lobby  房间公告 API(房间服务器每 15 秒上报,本地化)  │
+│                                                      │
+│  自定义:运行目录自动生成 custom/ 文件夹,替换界面        │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## 重要概念:服务端 vs 创建房间
 
-本项目只提供**独立运行的服务端进程**(无头服务器,常驻运行):
+本项目只提供**独立运行的无头服务端进程**(常驻服务器),完全不是模拟器 GUI 里的"创建房间"(Host Room——那需要用户开着模拟器当主机,人走房灭)。
 
-| 组件 | 性质 | 说明 |
+| 组件 | 性质 | 来源 |
 |---|---|---|
-| pspnet_adhocctl_server | ✅ 服务端 | PSP 房间/组管理服务器(来自 aemu 项目) |
-| aemu_postoffice | ✅ 服务端 | PSP 数据中继服务器(来自 aemu_postoffice 项目) |
-| azahar-room | ✅ 服务端 | 3DS 专用房间服务器(自 azahar 模拟器源码提取) |
-| eden-room | ✅ 服务端 | Switch 专用房间服务器(自 eden/mirror 模拟器源码提取) |
-| 玩家状态页 / 管理面板 | ✅ 服务端 | 大一统 Web 前端 |
+| pspnet_adhocctl_server | ✅ 服务端 | aemu 项目提取(PSP 组管理) |
+| aemu_postoffice | ✅ 服务端 | aemu_postoffice 项目(数据中继) |
+| azahar-room | ✅ 服务端 | azahar 模拟器内部 room-server 提取 |
+| eden-room | ✅ 服务端 | eden/mirror 模拟器内部 room-server 提取 |
+| 状态页 + 管理面板 | ✅ 服务端 | 本仓库自研 Web 前端 |
 
-与"创建房间"不同:
+两个模拟器仓库中**模拟器本体(GUI/模拟核心)已砍掉**,只保留房间服务器及必要库
+(`common/network/web_service/citra_room` / `dedicated_room`),可独立编译运行。
 
-- ❌ **创建房间(Host Room)** 是模拟器 GUI 里的功能——需要有人打开模拟器当主机,模拟器一关房间就没了。
-- ✅ 本项目的**服务端**是独立进程,7×24 运行,玩家随时连接。
+## 公告公示:完全本地化,不依赖任何官方服务器
 
-本项目把 azahar / eden(mirror)两个模拟器仓库中**专门的房间服务器目标**
-(`citra_room_standalone` / `yuzu_room_standalone`)及其依赖库提取出来,
-**模拟器本体(GUI/模拟核心)已全部砍掉**,只保留服务端。
-
-## 公告(公开房间列表)完全本地化,不依赖任何官方服务器
-
-- azahar/eden 房间服务器支持向 Web API"公告"房间(名称/人数/游戏)。
-- 上游默认的公告服务器(如 `api.azahar-emu.org`、第三方 `api.ynet-fun.xyz`)**
-  已不可用**。本服务端中的房间服务器公告地址被改到**本服务自己的 WebUI**
-  (`WEB_API_URL`,默认 `http://127.0.0.1:8080`),玩家状态页与客户端查询房间走
-  `/lobby` 接口——**全程内部中转,不经过任何第三方**。
-- 官方 JWT 令牌验证体系已按需**移除**:玩家加入房间无需任何令牌(`NullBackend`),
-  密钥/公钥相关代码已删除,构建不再依赖 cpp-jwt。
+- azahar-room / eden-room 支持把房间信息上报到 Web API(名称/人数/游戏),供大厅列表展示;
+- 上游默认公告服务器(api.azahar-emu.org、api.ynet-fun.xyz 等)已死;本项目把公告地址
+  指向**本服务自己的 webui**(`/lobby`),玩家状态页与客户端查询房间全部走本地,不经第三方;
+- 官方 JWT/令牌验证体系已按需移除(verify_user_jwt、cpp-jwt 依赖已删),**玩家加入房间无需令牌**;
+- 可选:`config/unified-server.conf` 开启 `CVN_PLAY_ENABLED` 把房间**同时公示到 CVN Play 中国大厅**;
+- 可选:`LOBBY_RELAY_ENABLED` 让 webui 把收到的公告**双份转发**(本地 + CVN)。
 
 ## 快速开始(Linux)
 
 ### 方式 A(推荐):AppImage 单文件(自带运行环境,无需安装任何依赖)
 
 ```bash
+chmod +x fushihuang-server-linux-x86_64.AppImage
 ./fushihuang-server-linux-x86_64.AppImage start all   # 启动全部服务
 ./fushihuang-server-linux-x86_64.AppImage status      # 查看状态
 ./fushihuang-server-linux-x86_64.AppImage stop all    # 停止
 ```
 
-- ARM 设备(树莓派/ARM 云服务器)下载 `fushihuang-server-linux-arm64.AppImage`;
-- 若系统没有 FUSE,用 `--appimage-extract-and-run` 方式执行:
-  `./fushihuang-server-linux-x86_64.AppImage --appimage-extract-and-run start all`;
-- 首次运行后会在**运行目录自动生成 `custom/` 文件夹**——往里面放
-  `index.html` / `style.css` 即可替换/定制玩家状态页(无需进包内改文件)。
+- ARM 设备(树莓派/ARM 云服务器/ARM 手机)下载 `fushihuang-server-linux-arm64.AppImage`(经 ARM 实机验证);
+- 系统无 FUSE 时用 `--appimage-extract-and-run` 参数运行;
+- 首次运行后会在**运行目录自动生成 `custom/` 文件夹**,放入 `index.html` / `style.css`
+  即可替换/定制玩家状态页。
 
 ### 方式 B:传统 tar.gz 包
 
@@ -82,63 +72,49 @@ cd fushihuang-server
 ### 方式 C:本机源码构建
 
 ```bash
-make build
+sudo apt install gcc make libsqlite3-dev nodejs cmake ninja-build build-essential libssl-dev
+make build       # PSP + azahar-room + eden-room
 make start
 ```
 
-访问:
-
-- 玩家状态页:http://服务器IP:8080/
-- 管理面板:http://服务器IP:8080/admin (默认密码 `change-me`,务必修改)
-
-### 构建依赖(仅源码构建方式需要)
-
-| 组件 | 依赖 |
-|---|---|
-| PSP (adhocctl) | gcc, make, libsqlite3-dev |
-| PSP (postoffice) | node >= 16, npm(仅构建一次,产物为 JS) |
-| azahar-room | cmake, ninja, g++, libssl-dev, git(拉取 36 个 externals 子模块) |
-| eden-room | cmake, ninja, g++, libssl-dev, libavcodec/libavformat/libavutil/libswscale-dev(动态回退模式) |
-
 ## 玩家连接方法
 
-| 平台 | 模拟器/插件 | 服务器地址 | 端口 |
-|---|---|---|---|
-| PSP | aemu 插件 / PPSSPP 网络对战 | 服务器IP | 27312(组管理)、27313(中继) |
-| 3DS | Azahar 模拟器 → 多人游戏 → 加入房间 | 服务器IP | 24872 |
-| Switch | Eden 模拟器 → 多人游戏 → 加入房间 | 服务器IP | 24873 |
+| 平台 | 客户端 | 地址 | 端口 | 协议 |
+|---|---|---|---|---|
+| PSP | aemu 插件 / PPSSPP | 服务器IP | 27312 / 27313 | TCP |
+| 3DS | Azahar 模拟器 → 多人游戏 | 服务器IP | 24872 | **UDP**(ENet) |
+| Switch | Eden 模拟器 → 多人游戏 | 服务器IP | 24873 | **UDP**(ENet) |
+
+⚠️ 房间服务器(24872/24873)是 **UDP** 协议(ENet),防火墙/安全组必须**同时放行对应端口的 TCP 与 UDP**;
+PSP 两个端口为 TCP。官网卷帘勿漏。
+
+## 管理面板与状态页
+
+- 玩家状态页:http://IP:8080/ — 聚合显示五个服务的在线状态、PSP 在线会话、
+  3DS/Switch 公开房间(名称/人数/游戏);
+- 管理面板:http://IP:8080/admin — 登录后启停/重启任意服务、查看各服务日志、
+  在线编辑配置(自动备份),管理密码在 `config/unified-server.conf`(默认 `change-me`)。
 
 ## 配置
 
-所有配置集中在 `config/unified-server.conf`(管理面板里也能改):
+`config/unified-server.conf` 集中所有参数:端口、房间名/密码/人数、推荐游戏、
+公告开关(CVN Play 公示)、管理密码等;postoffice 中继参数见 `config/postoffice.json`。
 
-- 端口、房间名、房间密码、最大人数、推荐游戏;
-- `AZAHAR_ROOM_TOKEN` / `EDEN_ROOM_TOKEN`:公告开关(默认开启,公告走本地 WebUI);
-- 实机部署时把 `WEB_API_URL` 改成 `http://你的公网IP或域名:8080`;
-- `ADMIN_PASSWORD`:管理面板密码。
+## 已知事项
 
-postoffice 中继参数:`config/postoffice.json`。
+- azahar/eden 房间服务器基于 ENet/UDP,docker 与防火墙同时放行 TCP+UDP;
+- eden 默认以**私有房间**运行(入内直连,无需公告令牌);公告公示需要动态构建模式(见 CI);
+- AppImage 内含 node 运行时与全部二进制,离线可用;
+- 未做开机自启(systemd);可自行 `systemctl` 包一层 `scripts/unified-server start all`。
 
-## 自定义玩家状态页
-
-把 `custom/index.html`(整页替换)或 `custom/style.css`(附加样式)放入 `custom/` 目录
-即可,无需重启。页面数据从 `/api/status` 拉取(JSON),可自由排版。
-
-## 管理面板
-
-- 服务状态查看与 启动/停止/重启;
-- 各服务实时日志(`tail`);
-- 在线编辑配置(自动备份 `unified-server.conf.bak`);
-- 管理接口需要登录(`config/unified-server.conf` 中 `ADMIN_PASSWORD`)。
-
-## 项目来源与许可
+## 来源与许可
 
 | 目录 | 来源 | 提取内容 |
 |---|---|---|
-| src/psp/adhocctl | [Kethen/aemu](https://github.com/Kethen/aemu) | pspnet_adhocctl_server |
-| src/psp/postoffice | [Kethen/aemu_postoffice](https://github.com/Kethen/aemu_postoffice) | relay 服务器(TS) |
-| src/azahar-room | [azahar](https://github.com/azahar-emu/azahar) | azahar-room 及依赖库 |
-| src/eden-room | [eden/mirror](https://github.com/MEKCCK/mirror) | eden-room 及依赖库 |
-| src/webui | 本项目 | 大一统前端 + Lobby API |
+| src/psp/adhocctl | Kethen/aemu | pspnet_adhocctl_server |
+| src/psp/postoffice | Kethen/aemu_postoffice | 中继服务器(TS) |
+| src/azahar-room | azahar-emu/azahar | azahar-room 及依赖库 |
+| src/eden-room | MEKCCK/mirror (Eden) | eden-room 及依赖库 |
+| src/webui | 本仓库 | 大一统前端 + Lobby API |
 
 各组件保持上游许可(见 LICENSE / NOTICE.md)。
