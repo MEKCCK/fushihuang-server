@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/src/eden-room"
 BUILD="$ROOT/build/eden-room"
-mkdir -p "$BUILD"
+mkdir -p "$BUILD" "$ROOT/build/bin"
 
 cd "$SRC"
 
