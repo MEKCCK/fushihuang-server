@@ -39,8 +39,11 @@ def clone(job):
         os.makedirs(parent, exist_ok=True)
     if os.path.isdir(path) and os.listdir(path):
         return path, "skip(nonempty)"
-    r = subprocess.run(["git", "clone", "--recursive", "--depth", "1", url, path],
-                       capture_output=True, text=True)
+    cmd = ["git", "clone", "--recursive", "--depth", "1", url, path]
+    if path == "externals/xxHash":
+        # upstream HEAD dropped cmake_unofficial; pin the version azahar expects
+        cmd = ["git", "clone", "--recursive", "--depth", "1", "--branch", "v0.8.2", url, path]
+    r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         return path, f"FAIL: {r.stderr.strip()[-200:]}"
     return path, "ok"
