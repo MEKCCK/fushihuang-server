@@ -30,7 +30,6 @@
 #include "network/verify_user.h"
 
 #ifdef ENABLE_WEB_SERVICE
-#include "web_service/verify_user_jwt.h"
 #endif
 
 #undef _UNICODE
