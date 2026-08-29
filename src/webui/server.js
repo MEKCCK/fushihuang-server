@@ -56,9 +56,10 @@ const UNIFIED_CTL = path.join(ROOT, "scripts", "unified-server");
 
 // ------------------------------------------------------------- lobby relay (双公示)
 // 把本服务收到的房间公告同时转发到外部大厅(如 CVN Play)
-const RELAY_ENABLED = CONFIG.LOBBY_RELAY_ENABLED === "true";
-const RELAY_URL = (CONFIG.LOBBY_RELAY_URL || "").replace(/\/+$/, "");
-const RELAY_TOKEN = CONFIG.LOBBY_RELAY_TOKEN || "";
+// (常量在 loadConfig() 之后初始化,见文件下方)
+let RELAY_ENABLED = false;
+let RELAY_URL = "";
+let RELAY_TOKEN = "";
 
 function relayPost(urlPath, body) {
     if (!RELAY_ENABLED || !RELAY_URL) return;
@@ -105,6 +106,12 @@ function loadConfig() {
     return CONFIG;
 }
 loadConfig();
+function initRelay() {
+    RELAY_ENABLED = CONFIG.LOBBY_RELAY_ENABLED === "true";
+    RELAY_URL = (CONFIG.LOBBY_RELAY_URL || "").replace(/\/+$/, "");
+    RELAY_TOKEN = CONFIG.LOBBY_RELAY_TOKEN || "";
+}
+initRelay();
 
 // ------------------------------------------------------------- helpers
 const get = (url, timeout = 4000) =>
@@ -124,6 +131,19 @@ const tcpProbe = (port, host = "127.0.0.1") =>
         const s = net.connect({ port, host }, () => { s.destroy(); resolve(true); });
         s.on("error", () => resolve(false));
         s.setTimeout(1500, () => { s.destroy(); resolve(false); });
+    });
+
+// 房间服务器走 ENet/UDP,没有 TCP 监听:发一个垃圾包,无 ICMP 拒绝即视为在线
+const dgram = require("node:dgram");
+const udpProbe = (port, host = "127.0.0.1") =>
+    new Promise((resolve) => {
+        const s = dgram.createSocket("udp4");
+        s.on("error", () => { s.close(); resolve(false); });
+        s.on("message", () => { s.close(); resolve(true); });
+        s.send(Buffer.alloc(32), port, host, () => {
+            setTimeout(() => { s.close(); resolve(true); }, 800);
+        });
+        s.on("close", () => {});
     });
 
 const readFile = (p, def = "") => { try { return fs.readFileSync(p, "utf8"); } catch { return def; } };
@@ -180,8 +200,8 @@ async function collectStatus() {
     const [adhoc, post, azahar, eden] = await Promise.all([
         tcpProbe(ports.pspAdhocctl),
         tcpProbe(ports.pspPostoffice),
-        tcpProbe(ports.azaharRoom),
-        tcpProbe(ports.edenRoom),
+        udpProbe(ports.azaharRoom),
+        udpProbe(ports.edenRoom),
     ]);
 
     // postoffice 调试数据
@@ -343,6 +363,12 @@ const server = http.createServer(async (req, res) => {
         LOBBY.delete(lobbyMatch[1]); lobbySave();
         if (rec) relayDelete("/lobby/" + rec.id);
         res.writeHead(200); return res.end("{}");
+    }
+
+    // --- azahar/eden 公告认证:返回任意 token 字符串即可(验证已去除) ---
+    if (pathname === "/jwt/internal" && method === "POST") {
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        return res.end("fushihuang-unified-server");
     }
 
     // --- 玩家状态 API ---

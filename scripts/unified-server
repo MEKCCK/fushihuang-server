@@ -19,15 +19,43 @@ UNIFIED_ROOT="${UNIFIED_ROOT:-$ROOT}"
 
 CONF="${UNIFIED_ROOT}/config/unified-server.conf"
 [ -f "$CONF" ] || { echo "config not found: $CONF"; exit 1; }
-# shellcheck disable=SC1090
-source "$CONF"
+
+# 安全解析 key=value 配置(不能用 bash source:含空格的中文值会被当成命令执行)
+# 支持注释(#开头)、空行;值保留内部空格,去除首尾空白与引号
+parse_conf() {
+    while IFS= read -r line; do
+        line=${line%%$'\r'}
+        case "$line" in
+            ''|'#'*) continue ;;
+        esac
+        key="${line%%=*}"; value="${line#*=}"
+        [ -n "$key" ] || continue
+        case "$key" in
+            *[!A-Za-z0-9_]*|'') continue ;;
+        esac
+        # 去除值首尾空白与成对引号
+        value="${value#" "}"; value="${value%" "}"
+        while [ ${#value} -ge 2 ] && { [ "${value:0:1}" = '"' ] || [ "${value:0:1}" = "'" ]; }; do
+            q="${value:0:1}"
+            [ "${value: -1}" = "$q" ] || break
+            value="${value:1:${#value}-2}"
+        done
+        printf -v "$key" '%s' "$value"
+    done < "$CONF"
+}
+parse_conf
 
 RUN_DIR="$UNIFIED_ROOT/data/run"
 LOG_DIR="$UNIFIED_ROOT/data/logs"
 DATA_DIR="$UNIFIED_ROOT/data"
 mkdir -p "$RUN_DIR" "$LOG_DIR" "$DATA_DIR"
 
-BIN_DIR="${BIN_DIR:-$UNIFIED_ROOT/build/bin}"
+# 兼容源码目录(build/bin)与发布包(bin)两种布局
+if [ -z "${BIN_DIR:-}" ]; then
+    if [ -d "$UNIFIED_ROOT/build/bin" ]; then BIN_DIR="$UNIFIED_ROOT/build/bin"
+    elif [ -d "$UNIFIED_ROOT/bin" ]; then BIN_DIR="$UNIFIED_ROOT/bin"
+    else BIN_DIR="$UNIFIED_ROOT/build/bin"; fi
+fi
 NODE_BIN="${NODE_BIN:-$(command -v node || echo "$UNIFIED_ROOT/runtime/node/bin/node")}"
 
 [ -x "$NODE_BIN" ] || NODE_BIN="$(command -v node)"
@@ -36,6 +64,18 @@ SERVICES="psp-adhocctl psp-postoffice azahar-room eden-room webui"
 
 pid_file()   { echo "$RUN_DIR/$1.pid"; }
 log_file()   { echo "$LOG_DIR/$1.log"; }
+
+# 清理游离进程(手动启动/未记录 pid 的残留),避免端口占用导致新进程绑定失败
+kill_free() {
+    case "$1" in
+        psp-adhocctl)   pkill -9 -f '[p]spnet_adhocctl_server' 2>/dev/null ;;
+        psp-postoffice) pkill -9 -f '[a]emu_postoffice.js' 2>/dev/null ;;
+        azahar-room)    pkill -9 -f '[/]bin/azahar-room' 2>/dev/null ;;
+        eden-room)      pkill -9 -f '[/]bin/eden-room' 2>/dev/null ;;
+        webui)          pkill -9 -f '[w]ebui/server.js' 2>/dev/null ;;
+    esac
+    return 0
+}
 
 is_running() {
     [ -f "$(pid_file "$1")" ] || return 1
@@ -46,6 +86,30 @@ is_running() {
 tcp_up() {
     local port="$1"
     timeout 1 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" 2>/dev/null
+}
+
+# UDP 探测(房间服务器走 ENet/UDP,没有 TCP 监听;无 ICMP 拒绝即视为在线)
+udp_up() {
+    local port="$1"
+    python3 - "$port" <<'PYEOF'
+import socket, sys
+port = int(sys.argv[1])
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.settimeout(1.0)
+try:
+    s.sendto(b"\x00" * 32, ("127.0.0.1", port))
+    try:
+        s.recvfrom(64)
+    except socket.timeout:
+        pass
+    except ConnectionRefusedError:
+        sys.exit(1)
+except OSError:
+    sys.exit(1)
+finally:
+    s.close()
+sys.exit(0)
+PYEOF
 }
 
 start_psp_adhocctl() {
@@ -65,10 +129,11 @@ start_psp_postoffice() {
 start_azahar_room() {
     local bin="$BIN_DIR/azahar-room"
     [ -x "$bin" ] || { echo "missing $bin (run build first)"; return 1; }
+    # azahar 参数:--max_members(下划线);首选应用用 --preferred-app/--preferred-app-id
     local args=(--room-name "$AZAHAR_ROOM_NAME" --room-description "$AZAHAR_ROOM_DESCRIPTION"
-                --port "$AZAHAR_ROOM_PORT" --max-members "$AZAHAR_ROOM_MAX_MEMBERS"
-                --preferred-game "$AZAHAR_ROOM_PREFERRED_GAME"
-                --preferred-game-id "$AZAHAR_ROOM_PREFERRED_GAME_ID")
+                --port "$AZAHAR_ROOM_PORT" --max_members "$AZAHAR_ROOM_MAX_MEMBERS"
+                --preferred-app "$AZAHAR_ROOM_PREFERRED_GAME"
+                --preferred-app-id "$AZAHAR_ROOM_PREFERRED_GAME_ID")
     [ -n "$AZAHAR_ROOM_PASSWORD" ] && args+=(--password "$AZAHAR_ROOM_PASSWORD")
     local api_url="$WEB_API_URL" api_user="$AZAHAR_ROOM_USERNAME" api_token="$AZAHAR_ROOM_TOKEN"
     if [ "$CVN_PLAY_ENABLED" = "true" ] && [ -n "$CVN_PLAY_TOKEN" ]; then
@@ -121,16 +186,20 @@ start_webui() {
 
 start_one() {
     local svc="$1"
+    kill_free "$svc"
+    sleep 0.3
     if is_running "$svc"; then
         echo "already running: $svc"
         return 0
     fi
     echo "starting $svc ..."
-    "start_${svc}"
+    local fn="start_${svc//-/_}"
+    "$fn"
 }
 
 stop_one() {
     local svc="$1"
+    kill_free "$svc"
     if is_running "$svc"; then
         kill "$(cat "$(pid_file "$svc")")" 2>/dev/null
         for _ in $(seq 1 50); do is_running "$svc" || break; sleep 0.1; done
@@ -163,10 +232,16 @@ status)
         if is_running "$s"; then echo "[运行中] $s (pid $(cat "$(pid_file "$s")"))";
         else echo "[已停止] $s"; fi
     done
-    echo "---- 端口探测 ----"
-    for entry in "27312 psp-adhocctl" "27313 psp-postoffice" "24872 azahar-room" "24873 eden-room" "8080 webui"; do
+    echo "---- 端口探测 (房间服务器为 ENet/UDP) ----"
+    for entry in "tcp 27312 psp-adhocctl" "tcp 27313 psp-postoffice" \
+                 "udp 24872 azahar-room" "udp 24873 eden-room" "tcp 8080 webui"; do
         set -- $entry
-        if tcp_up "$1"; then echo "  OK  端口 $1 ($2)"; else echo "  FAIL 端口 $1 ($2)"; fi
+        proto="$1"; port="$2"; name="$3"
+        if [ "$proto" = "udp" ]; then
+            if udp_up "$port"; then echo "  OK  UDP $port ($name)"; else echo "  FAIL UDP $port ($name)"; fi
+        else
+            if tcp_up "$port"; then echo "  OK  TCP $port ($name)"; else echo "  FAIL TCP $port ($name)"; fi
+        fi
     done
     ;;
 logs)
