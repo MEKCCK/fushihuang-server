@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT/src/azahar-room"
 BUILD="$ROOT/build/azahar-room"
-mkdir -p "$BUILD"
+mkdir -p "$BUILD" "$ROOT/build/bin"
 
 cd "$SRC"
 
