@@ -1,0 +1,83 @@
+:root {
+  --bg: #0f1420; --panel: #1a2233; --panel2: #151c2b;
+  --text: #e8ecf4; --muted: #8b95a8;
+  --accent: #4f8cff; --good: #35d07f; --bad: #ef5350; --warn: #ffb74d;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+}
+header {
+  text-align: center; padding: 34px 16px 10px;
+  background: linear-gradient(180deg, #182340 0%, var(--bg) 100%);
+}
+header h1 { margin: 0; font-size: 26px; letter-spacing: 1px; }
+header .sub { color: var(--muted); margin: 8px 0 0; }
+main { max-width: 960px; margin: 18px auto 40px; padding: 0 16px; }
+.panel {
+  background: var(--panel); border: 1px solid #26304a; border-radius: var(--radius);
+  padding: 18px; margin-bottom: 18px;
+}
+.panel-head { display: flex; justify-content: space-between; align-items: center; }
+.panel-head h2 { margin: 0; font-size: 17px; }
+.badge {
+  background: #26304a; color: var(--muted); padding: 4px 12px; border-radius: 999px;
+  font-size: 12px;
+}
+.badge.ok { background: rgba(53,208,127,.15); color: var(--good); }
+.badge.err { background: rgba(239,83,80,.15); color: var(--bad); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.card {
+  background: var(--panel2); border: 1px solid #2a3550; border-radius: 10px; padding: 14px;
+}
+.card-title { font-weight: 600; margin-bottom: 10px; }
+.stat { display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot.good { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.dot.bad { background: var(--bad); }
+.meta { color: var(--muted); font-size: 13px; margin-top: 6px; }
+.thin { color: var(--muted); font-size: 13px; line-height: 1.8; }
+code { background: #0d1220; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+.rooms .room {
+  margin-top: 10px; background: #10162a; border: 1px solid #26304a; border-radius: 8px; padding: 10px;
+}
+.room .rname { font-weight: 600; }
+.room .rcount { float: right; color: var(--good); font-size: 13px; }
+.room .rdetail { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.howto { margin-top: 12px; color: var(--muted); font-size: 13px; padding: 10px; background: #10162a; border-radius: 8px; }
+.howto code { background: #1a2233; }
+footer {
+  text-align: center; color: var(--muted); font-size: 12px; padding: 20px 12px 34px;
+  border-top: 1px solid #1c2438;
+}
+footer a { color: var(--accent); text-decoration: none; }
+
+/* admin */
+form.login { max-width: 360px; margin: 60px auto; background: var(--panel); border: 1px solid #26304a; border-radius: var(--radius); padding: 24px; }
+form.login h2 { margin-top: 0; }
+input[type=password], input[type=text], textarea {
+  width: 100%; background: #0d1220; border: 1px solid #2a3550; color: var(--text);
+  padding: 9px 12px; border-radius: 8px; margin: 6px 0 14px; font-size: 14px;
+}
+textarea { min-height: 200px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+button, .btn {
+  background: var(--accent); color: #fff; border: 0; padding: 9px 16px; border-radius: 8px;
+  cursor: pointer; font-size: 14px;
+}
+button.sec { background: #26304a; }
+button.danger { background: var(--bad); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.svc { background: var(--panel2); border: 1px solid #26304a; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.svc h3 { margin: 0 0 6px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+.svc .ops { margin-top: 10px; display: flex; gap: 8px; }
+pre.log {
+  background: #0a0f1c; padding: 12px; border-radius: 8px; max-height: 420px; overflow: auto;
+  font-size: 12px; color: #9fb2cc; white-space: pre-wrap; word-break: break-all;
+}
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tabs button { background: #26304a; }
+.tabs button.active { background: var(--accent); }
+.ok-msg { color: var(--good); } .err-msg { color: var(--bad); }

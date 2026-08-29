@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>服始皇</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1 id="server-name">服始皇</h1>
+  <p class="sub">PSP · 3DS · Switch 全平台联机服务聚合状态</p>
+</header>
+
+<main>
+  <section class="panel" id="panel-psp">
+    <div class="panel-head">
+      <h2>🎮 PSP 联机服务</h2>
+      <span class="badge" id="psp-agg">检测中…</span>
+    </div>
+    <div class="cards">
+      <div class="card" id="psp-adhocctl">
+        <div class="card-title">组管理服务 (adhocctl)</div>
+        <div class="stat"><span class="dot"></span><b class="state">检测中</b></div>
+        <div class="meta">端口 <code>27312</code></div>
+      </div>
+      <div class="card" id="psp-postoffice">
+        <div class="card-title">数据中继 (postoffice)</div>
+        <div class="stat"><span class="dot"></span><b class="state">检测中</b></div>
+        <div class="meta">端口 <code>27313</code></div>
+        <div class="meta" id="postoffice-extra"></div>
+      </div>
+    </div>
+    <div class="howto">
+      连接方法:aemu 插件 / PPSSPP 网络对战 → 服务器地址填本机 IP,端口 27312(组管理) 与 27313(中继)
+    </div>
+  </section>
+
+  <section class="panel" id="panel-3ds">
+    <div class="panel-head">
+      <h2>🕹️ 3DS 联机房间</h2>
+      <span class="badge" id="azahar-agg">检测中…</span>
+    </div>
+    <div class="cards"><div class="card" id="azahar-room">
+      <div class="card-title">azahar-room</div>
+      <div class="stat"><span class="dot"></span><b class="state">检测中</b></div>
+      <div class="meta">端口 <code>24872</code></div>
+      <div class="rooms" id="azahar-rooms"></div>
+    </div></div>
+    <div class="howto">连接方法:Azahar 模拟器 → 多人游戏 → 直接加入房间,地址填 <code>服务器IP:24872</code></div>
+  </section>
+
+  <section class="panel" id="panel-switch">
+    <div class="panel-head">
+      <h2>🖥️ Switch 联机房间</h2>
+      <span class="badge" id="eden-agg">检测中…</span>
+    </div>
+    <div class="cards"><div class="card" id="eden-room">
+      <div class="card-title">eden-room</div>
+      <div class="stat"><span class="dot"></span><b class="state">检测中</b></div>
+      <div class="meta">端口 <code>24873</code></div>
+      <div class="rooms" id="eden-rooms"></div>
+    </div></div>
+    <div class="howto">连接方法:Eden 模拟器 → 多人游戏 → 加入房间,地址填 <code>服务器IP:24873</code></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>ℹ️ 服务器信息</h2></div>
+    <div id="server-info" class="thin">加载中…</div>
+  </section>
+</main>
+
+<footer>服始皇 · 玩家状态页(可自定义:替换 <code>custom/index.html</code> 与 <code>custom/style.css</code>) · <a href="/admin">管理面板</a></footer>
+<script src="/app.js"></script>
+</body>
+</html>

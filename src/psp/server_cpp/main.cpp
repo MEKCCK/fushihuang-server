@@ -1,0 +1,98 @@
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <chrono>
+#include <thread>
+
+#ifdef __unix__
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/errno.h>
+#endif
+
+#include "server.h"
+#include "log.h"
+#include "../adhocctl/server_cpp/server.h"
+
+bool should_stop = false;
+
+#ifdef __unix__
+void handle_sigterm(int signum){
+	printf("%s: terminating\n", __func__);
+	should_stop = true;
+}
+#endif
+
+int main(){
+	#ifdef __unix__
+	signal(SIGTERM, handle_sigterm);
+	signal(SIGINT, handle_sigterm);
+	#endif
+
+	{
+		aemu_postoffice_server::Config config;
+		aemu_postoffice_server::Server server(config);
+
+		#ifdef __unix__
+		struct rlimit num_file_limit = {
+			(rlim_t)(config.max_num_sessions + 10),
+			(rlim_t)(config.max_num_sessions + 10)
+		};
+		int set_limit_status = setrlimit(RLIMIT_NOFILE, &num_file_limit);
+		if (set_limit_status == -1){
+			printf("%s: failed changing number of opened files (including sockets) limit, 0x%x\n", __func__, errno);
+		}
+		#endif
+
+		std::vector<std::thread> threads;
+
+		auto relay_thread = std::thread([&config, &server] {
+			while(!should_stop){
+				auto begin = std::chrono::high_resolution_clock::now();
+				aemu_postoffice_server::ServerPumpStatus pump_status = server.pump();
+				uint64_t interval_ms = config.target_tick_interval_ms;
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE){
+					interval_ms = config.target_tick_interval_idle_ms;
+				} else if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD){
+					break;
+				}
+				auto timespent = std::chrono::high_resolution_clock::now() - begin;
+				int64_t wait_ms = config.target_tick_interval_ms - timespent / std::chrono::milliseconds(1);
+				if (wait_ms > 0){
+					std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+				}
+			}
+		});
+
+		if (config.enable_adhocctl){
+			aemu_postoffice_adhocctl_server::Server adhocctl_server(config);
+
+			auto adhocctl_thread = std::thread([&config, &adhocctl_server] {
+				while(!should_stop){
+					auto begin = std::chrono::high_resolution_clock::now();
+					aemu_postoffice_adhocctl_server::ServerPumpStatus pump_status = adhocctl_server.pump();
+					uint64_t interval_ms = config.adhocctl_target_tick_interval_ms;
+					if (pump_status == aemu_postoffice_adhocctl_server::ServerPumpStatus::IDLE){
+						interval_ms = config.adhocctl_target_tick_interval_idle_ms;
+					} else if (pump_status == aemu_postoffice_adhocctl_server::ServerPumpStatus::ERROR){
+						break;
+					}
+					auto timespent = std::chrono::high_resolution_clock::now() - begin;
+					int64_t wait_ms = config.target_tick_interval_ms - timespent / std::chrono::milliseconds(1);
+					if (wait_ms > 0){
+						std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+					}
+				}
+			});
+
+			adhocctl_thread.join();
+		}
+
+		relay_thread.join();
+	}
+
+	aemu_postoffice_server::LOG("%s: server stopped\n", __func__);
+
+	return 0;
+}

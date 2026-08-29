@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理面板 - 服始皇</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>🛠️ 管理面板</h1>
+  <p class="sub">服始皇 · 服务调度 / 日志 / 配置</p>
+</header>
+<main>
+  <!-- 登录 -->
+  <form class="login" id="login-form" >
+    <h2>管理员登录</h2>
+    <label>密码</label>
+    <input type="password" id="login-password" autocomplete="current-password">
+    <button type="submit">登 录</button>
+    <div id="login-msg"></div>
+  </form>
+
+  <!-- 主界面 -->
+  <div id="admin-main" hidden>
+    <div class="tabs">
+      <button data-tab="services" class="active">服务状态</button>
+      <button data-tab="logs">日志</button>
+      <button data-tab="config">配置</button>
+      <button id="btn-logout">退出</button>
+    </div>
+
+    <section id="tab-services">
+      <div class="toolbar">
+        <button id="btn-all-restart">重启全部服务</button>
+        <button id="btn-all-start" class="sec">启动全部</button>
+        <button id="btn-all-stop" class="danger">停止全部</button>
+        <button id="btn-refresh" class="sec">刷新状态</button>
+      </div>
+      <div id="services"></div>
+    </section>
+
+    <section id="tab-logs" hidden>
+      <div class="toolbar">
+        <select id="log-service">
+          <option value="webui">webui</option>
+          <option value="psp-adhocctl">psp-adhocctl</option>
+          <option value="psp-postoffice">psp-postoffice</option>
+          <option value="azahar-room">azahar-room</option>
+          <option value="eden-room">eden-room</option>
+        </select>
+        <button id="btn-log-refresh" class="sec">刷新日志</button>
+      </div>
+      <pre class="log" id="log-view">(选择服务查看日志)</pre>
+    </section>
+
+    <section id="tab-config" hidden>
+      <p class="thin">保存配置后需重启对应服务生效(recommend: 重启全部)。修改前会自动备份为 unified-server.conf.bak</p>
+      <textarea id="config-editor"></textarea>
+      <div class="toolbar">
+        <button id="btn-config-reload">读取当前配置</button>
+        <button id="btn-config-save">保存配置</button>
+      </div>
+      <div id="config-msg"></div>
+    </section>
+  </div>
+</main>
+<script src="/admin.js"></script>
+</body>
+</html>

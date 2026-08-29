@@ -1,0 +1,18 @@
+# build artifacts
+build/
+dist/stage/
+dist/*.tar.gz
+dist/*.sha256
+dist/node-*/
+node_modules/
+
+# runtime data
+data/
+
+# extracted emulator build trees (ci rebuilds)
+src/azahar-room/build/
+src/eden-room/build/
+src/azahar-room/.git/
+src/eden-room/.git/
+src/psp/dist/
+config/unified-server.conf.bak
