@@ -11,8 +11,14 @@ env:
 
 jobs:
   build-psp:
-    name: PSP 服务端 (adhocctl + postoffice)
-    runs-on: ubuntu-24.04
+    name: PSP 服务端 (adhocctl + postoffice) ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64,  runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
       - name: 安装依赖
@@ -28,13 +34,19 @@ jobs:
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: psp
+          name: psp-${{ matrix.arch }}
           path: psp.tar.gz
 
   build-azahar-room:
-    name: 3DS 房间服务器 (azahar-room)
-    runs-on: ubuntu-24.04
+    name: 3DS 房间服务器 (azahar-room) ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64,  runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
       - name: 安装依赖
@@ -51,13 +63,19 @@ jobs:
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: azahar-room
+          name: azahar-${{ matrix.arch }}
           path: azahar-room.tar.gz
 
   build-eden-room:
-    name: Switch 房间服务器 (eden-room)
-    runs-on: ubuntu-24.04
+    name: Switch 房间服务器 (eden-room) ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: arm64,  runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
       - name: 安装依赖
@@ -74,37 +92,58 @@ jobs:
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: eden-room
+          name: eden-${{ matrix.arch }}
           path: eden-room.tar.gz
 
   package:
-    name: 打包 Linux 发布版
+    name: 打包 Linux 发布版 ${{ matrix.arch }}
     needs: [ build-psp, build-azahar-room, build-eden-room ]
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x86_64, arm64 ]
     steps:
       - uses: actions/checkout@v4
       - name: 下载产物
         uses: actions/download-artifact@v4
         with:
-          path: build/artifacts
-          merge-multiple: true
+          name: psp-${{ matrix.arch }}
+          path: build/artifacts/psp
+      - uses: actions/download-artifact@v4
+        with:
+          name: azahar-${{ matrix.arch }}
+          path: build/artifacts/azahar
+      - uses: actions/download-artifact@v4
+        with:
+          name: eden-${{ matrix.arch }}
+          path: build/artifacts/eden
       - name: 汇总并打包
         run: |
           mkdir -p build/bin build/postoffice
-          tar -xzf build/artifacts/psp.tar.gz -C build
-          tar -xzf build/artifacts/azahar-room.tar.gz -C build
-          tar -xzf build/artifacts/eden-room.tar.gz -C build
+          tar -xzf build/artifacts/psp/psp.tar.gz -C build
+          tar -xzf build/artifacts/azahar/azahar-room.tar.gz -C build
+          tar -xzf build/artifacts/eden/eden-room.tar.gz -C build
           chmod +x build/bin/* scripts/*.sh
-          bash scripts/package.sh x86_64
-      - name: 发布到 GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/fushihuang-server-linux-x86_64.tar.gz
-            dist/fushihuang-server-linux-x86_64.tar.gz.sha256
+          bash scripts/package.sh ${{ matrix.arch }}
       - name: 上传压缩包
         uses: actions/upload-artifact@v4
         with:
-          name: fushihuang-server-linux-x64
-          path: dist/fushihuang-server-linux-x86_64.tar.gz*
+          name: fushihuang-server-linux-${{ matrix.arch }}
+          path: dist/fushihuang-server-linux-*.tar.gz*
+
+  release:
+    name: 发布 GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 下载全部发布包
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: 发布
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.tar.gz*
