@@ -57,15 +57,32 @@
 
 ## 快速开始(Linux)
 
-```bash
-# 1. 方式 A:直接使用 GitHub Actions 产出的发布包
-tar -xzf fushihuang-server-linux-x86_64.tar.gz (ARM 机器用 arm64 包)
-cd all-in-one-netplay-server
-./scripts/unified-server start all     # 启动全部服务
-./scripts/unified-server status        # 查看状态
+### 方式 A(推荐):AppImage 单文件(自带运行环境,无需安装任何依赖)
 
-# 2. 方式 B:本机源码构建后启动
-make build                              # 需要 gcc/make/node/cmake/ninja(见下)
+```bash
+./fushihuang-server-linux-x86_64.AppImage start all   # 启动全部服务
+./fushihuang-server-linux-x86_64.AppImage status      # 查看状态
+./fushihuang-server-linux-x86_64.AppImage stop all    # 停止
+```
+
+- ARM 设备(树莓派/ARM 云服务器)下载 `fushihuang-server-linux-arm64.AppImage`;
+- 若系统没有 FUSE,用 `--appimage-extract-and-run` 方式执行:
+  `./fushihuang-server-linux-x86_64.AppImage --appimage-extract-and-run start all`;
+- 首次运行后会在**运行目录自动生成 `custom/` 文件夹**——往里面放
+  `index.html` / `style.css` 即可替换/定制玩家状态页(无需进包内改文件)。
+
+### 方式 B:传统 tar.gz 包
+
+```bash
+tar -xzf fushihuang-server-linux-x86_64.tar.gz
+cd fushihuang-server
+./scripts/unified-server start all
+```
+
+### 方式 C:本机源码构建
+
+```bash
+make build
 make start
 ```
 
