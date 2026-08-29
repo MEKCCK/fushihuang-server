@@ -9,7 +9,9 @@ mkdir -p "$ROOT/build/bin" "$ROOT/build/postoffice"
 
 echo ">> building adhocctl server (C)"
 cd "$ROOT/src/psp/adhocctl"
-make 2>/dev/null || make CC="${CC:-gcc}" CFLAGS="-fpack-struct -I. -Wno-implicit-function-declaration"
+mkdir -p "$ROOT/src/psp/dist/server"
+make clean >/dev/null 2>&1 || true
+make CC="${CC:-gcc}" CFLAGS="-fpack-struct -I. -Wno-implicit-function-declaration"
 [ -f "../dist/server/pspnet_adhocctl_server" ] || { echo "adhocctl build failed"; exit 1; }
 cp -f ../dist/server/pspnet_adhocctl_server "$ROOT/build/bin/"
 cp -f database.db "$ROOT/build/bin/"
