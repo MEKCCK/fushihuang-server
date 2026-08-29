@@ -37,7 +37,17 @@ const PORT = parseInt(arg("port", process.env.WEBUI_PORT || "8080"), 10);
 
 const CONF_FILE = path.join(ROOT, "config", "unified-server.conf");
 const PUBLIC_DIR = path.join(__dirname, "public");
-const CUSTOM_DIR = path.join(ROOT, "custom");
+// 自定义目录:优先 --custom-dir(通常是运行目录下的 custom/),否则用安装目录 custom/
+const CUSTOM_ARG = path.resolve(arg("custom-dir", ""));
+const CUSTOM_DIR = CUSTOM_ARG || path.join(ROOT, "custom");
+const CUSTOM_DIRS = [...new Set([CUSTOM_DIR, path.join(ROOT, "custom")])];
+function customFile(rel) {
+    for (const d of CUSTOM_DIRS) {
+        const f = path.join(d, rel);
+        if (fs.existsSync(f)) return f;
+    }
+    return null;
+}
 const DATA_DIR = path.join(ROOT, "data");
 const RUN_DIR = path.join(DATA_DIR, "run");
 const LOG_DIR = path.join(DATA_DIR, "logs");
@@ -254,14 +264,14 @@ function serveStatic(req, res, urlPath) {
     if (rel === "/") rel = "/index.html";
     const file = path.normalize(path.join(PUBLIC_DIR, rel));
     if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403); return res.end("forbidden"); }
-    // custom 覆盖:玩家状态页与样式可被 custom/ 目录替换
+    // custom 覆盖:玩家状态页与样式可被 custom/ 目录替换(运行目录 custom/ 优先)
     let body;
     if (rel === "/index.html") {
-        body = readFile(path.join(CUSTOM_DIR, "index.html")) ||
-               readFile(path.join(PUBLIC_DIR, "index.html"));
+        const cf = customFile("index.html");
+        body = (cf ? readFile(cf) : null) || readFile(path.join(PUBLIC_DIR, "index.html"));
     } else if (rel === "/style.css") {
-        body = readFile(path.join(PUBLIC_DIR, "style.css")) +
-               readFile(path.join(CUSTOM_DIR, "style.css"));
+        body = readFile(path.join(PUBLIC_DIR, "style.css"));
+        for (const d of CUSTOM_DIRS) body += readFile(path.join(d, "style.css"));
     } else {
         if (fs.existsSync(file)) body = fs.readFileSync(file);
         else return null;

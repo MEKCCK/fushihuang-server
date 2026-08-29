@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # 打包发布版:合并全部产物 + 附带 node 运行时 -> dist/fushihuang-server-linux-<arch>.tar.gz
 set -euo pipefail
+TAG="__FU_SELF_EXTRACT_BEGIN__"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCH="${1:-$(uname -m)}"
 case "$ARCH" in
-  x86_64) NODE_ARCH=linux-x64 ;;
-  aarch64|arm64) NODE_ARCH=linux-arm64 ;;
+  x86_64) NODE_ARCH=linux-x64; AIMG_ARCH=x86_64 ;;
+  aarch64|arm64) NODE_ARCH=linux-arm64; AIMG_ARCH=aarch64 ;;
   *) echo "unsupported arch: $ARCH"; exit 1 ;;
 esac
 
@@ -51,6 +52,57 @@ rm -rf "$STAGE/runtime/node/include" "$STAGE/runtime/node/share" "$STAGE/runtime
 # 5) 打包
 OUT="fushihuang-server-linux-$ARCH.tar.gz"
 tar -C "$STAGE" -czf "$OUT" .
-echo ">> 打包完成: dist/$OUT"
+echo ">> 传统包完成: dist/$OUT"
 sha256sum "$OUT" > "$OUT.sha256"
 echo "sha256: $(cat "$OUT.sha256")"
+
+# 6) AppImage 单文件可执行版(主交付物,自带运行环境)
+#    包含:三个服务端二进制 + node 运行时 + webui + 管理器 + 配置
+OUT_APP="fushihuang-server-linux-$ARCH.AppImage"
+APPDIR="$ROOT/dist/AppDir"
+rm -rf "$APPDIR"
+mkdir -p "$APPDIR/usr/share/fushihuang-server"
+cp -r "$STAGE/." "$APPDIR/usr/share/fushihuang-server/"
+
+cat > "$APPDIR/AppRun" <<'EORUN'
+#!/bin/sh
+# AppImage 入口:把所有参数透传给服始皇管理器
+HERE=$(dirname "$(readlink -f "$0")")
+export FU_SHARE="$HERE/usr/share/fushihuang-server"
+CTL="$FU_SHARE/scripts/unified-server"
+if [ ! -x "$CTL" ]; then
+    echo "服始皇运行库缺失: $CTL"; exit 1
+fi
+if [ $# -eq 0 ]; then
+    exec "$CTL" status
+fi
+exec "$CTL" "$@"
+EORUN
+chmod +x "$APPDIR/AppRun"
+
+cat > "$APPDIR/fushihuang-server.desktop" <<EODESK
+[Desktop Entry]
+Type=Application
+Name=Fu Shi Huang (服始皇)
+Comment=Unified Netplay Server: PSP / 3DS / Switch
+Exec=fushihuang-server
+Icon=fushihuang-server
+Terminal=true
+Categories=Game;Network;
+EODESK
+cp "$ROOT/src/azahar-room/dist/azahar.png" "$APPDIR/fushihuang-server.png"
+
+cd "$ROOT/dist"
+if [ ! -x "appimagetool" ]; then
+    echo ">> downloading appimagetool ($AIMG_ARCH)"
+    curl -fsSL "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$AIMG_ARCH.AppImage" -o appimagetool.AppImage
+    chmod +x appimagetool.AppImage
+    ./appimagetool.AppImage --appimage-extract >/dev/null 2>&1 || true
+    mv squashfs-root/usr/bin/appimagetool ./appimagetool 2>/dev/null || true
+fi
+echo ">> building AppImage: $OUT_APP"
+./appimagetool "$APPDIR" "$OUT_APP" >/dev/null
+chmod +x "$OUT_APP"
+echo ">> AppImage 完成: dist/$OUT_APP ($(du -sh "$OUT_APP" | cut -f1))"
+sha256sum "$OUT_APP" > "$OUT_APP.sha256"
+echo "sha256: $(cat "$OUT_APP.sha256")"

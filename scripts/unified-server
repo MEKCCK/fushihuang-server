@@ -107,7 +107,14 @@ start_eden_room() {
 start_webui() {
     local js="$UNIFIED_ROOT/src/webui/server.js"
     [ -f "$js" ] || { echo "missing $js"; return 1; }
-    nohup "$NODE_BIN" "$js" --root "$UNIFIED_ROOT" --port "$WEBUI_PORT" \
+    # 自定义界面目录:默认是“运行目录/custom”,不存在则自动生成模板(在目录里放文件即可换界面)
+    local custom_dir="${FU_CUSTOM_DIR:-$PWD/custom}"
+    if [ ! -d "$custom_dir" ]; then
+        mkdir -p "$custom_dir"
+        [ -f "$UNIFIED_ROOT/custom/README.txt" ] && cp -f "$UNIFIED_ROOT/custom/README.txt" "$custom_dir/" 2>/dev/null || true
+        echo "[webui] 已生成自定义界面目录: $custom_dir (放入 index.html/style.css 即可自定义)"
+    fi
+    nohup "$NODE_BIN" "$js" --root "$UNIFIED_ROOT" --port "$WEBUI_PORT" --custom-dir "$custom_dir" \
         >>"$(log_file webui)" 2>&1 &
     echo $! > "$(pid_file webui)"
 }
