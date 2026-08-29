@@ -95,13 +95,15 @@ cp "$ROOT/src/azahar-room/dist/azahar.png" "$APPDIR/fushihuang-server.png"
 cd "$ROOT/dist"
 if [ ! -x "appimagetool" ]; then
     echo ">> downloading appimagetool ($AIMG_ARCH)"
-    curl -fsSL "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$AIMG_ARCH.AppImage" -o appimagetool.AppImage
+    curl -fsSL "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$AIMG_ARCH.AppImage" -o appimagetool.AppImage \
+        || curl -fsSL "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$AIMG_ARCH.AppImage" -o appimagetool.AppImage
     chmod +x appimagetool.AppImage
-    ./appimagetool.AppImage --appimage-extract >/dev/null 2>&1 || true
+    ./appimagetool.AppImage --appimage-extract 2>&1 | tail -5 || true
     mv squashfs-root/usr/bin/appimagetool ./appimagetool 2>/dev/null || true
+    [ -x ./appimagetool ] || { echo "!! appimagetool 解包失败"; exit 1; }
 fi
 echo ">> building AppImage: $OUT_APP"
-./appimagetool "$APPDIR" "$OUT_APP" >/dev/null
+./appimagetool "$APPDIR" "$OUT_APP" 2>&1 | tail -30
 chmod +x "$OUT_APP"
 echo ">> AppImage 完成: dist/$OUT_APP ($(du -sh "$OUT_APP" | cut -f1))"
 sha256sum "$OUT_APP" > "$OUT_APP.sha256"
